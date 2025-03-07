@@ -4,7 +4,7 @@
 # ticker i string
 # hente earnings 
 # hent price 
-# kalkuler pe '
+# kalkuler pe 
 # returnerer pandas dataframe 
 
 
