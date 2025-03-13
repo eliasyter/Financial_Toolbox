@@ -23,6 +23,7 @@ ticker_symbol = "AAPL"
 # Hent aksjeinformasjon
 stock = yf.Ticker(ticker_symbol)
 
+print(stock.income_stmt)
 print(stock.income_stmt["2024-09-30"]["Total Revenue"])
 
 
