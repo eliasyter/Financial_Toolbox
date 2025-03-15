@@ -17,17 +17,9 @@ import pandas as pd
 
 import yfinance as yf
 
-def calculate_PE(ticker_symbol="TSLA"):
-        
-    
-
-        
+def calculate_PE(ticker_symbol="TSLA"):    
     ticker = yf.Ticker(ticker_symbol)
-
-    # Get the income statement
     income_stmt = ticker.income_stmt
-
-    # Extract the timestamps (dates) into a list
     timestamps = income_stmt.columns.tolist()
     dates=[]
     pe_date=[]
@@ -50,10 +42,6 @@ def calculate_PE(ticker_symbol="TSLA"):
     plt.title(f"PE_Over_Time for {ticker_symbol}")
     plt.xlabel("Year")
     plt.ylabel("PE")
-
-   
-
-   
     plt.show()
         
     
