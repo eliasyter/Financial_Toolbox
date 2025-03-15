@@ -2,3 +2,4 @@ myenv/
 .ipynb_checkpoints
 test.py
 testing.ipynb
+__pycache__/
