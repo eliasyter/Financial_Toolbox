@@ -12,33 +12,37 @@ def Get_Normalized_Data(a, period='1mo', interval='1d', start=None, end=None):
     for name in names:
         currencies[name] = yf.Ticker(name).info.get("currency")
 
+    print("Currencies dictionary")
+    print("------------------------------")
+    print(currencies)
+    print("")
+    print(currencies.values())
+    print("")
+    
     #import currency time series
-    cst = list(set(currencies.values()))
-    try:
-        cst.remove("USD")
-    except ValueError:
-        pass
-    tmp = [c+"=X" for c in cst]
-    tmp = " ".join(tmp)
-
+    tmp = []
+    for currency in currencies.values():
+        if currency != "USD" and currency not in tmp:
+            tmp.append(currency)
+    tmp = [currency + "=X" for currency in tmp]
+    
+    print(f"tmp = {tmp}")
+    print("")
+    
     currencies_tickers = yf.Tickers(tmp)
     currencies_time_series = currencies_tickers.history(period=period,interval=interval,start=start,end=end)["Close"]
-    currencies_time_series.columns = cst
     
     print("Currency time series")
     print("------------------------------")
     print(currencies_time_series)
     print("")
 
-    print("Currencies dictionary")
-    print("------------------------------")
-    print(currencies)
-    print("")
+    
 
     df = yf.Tickers(a).history(period=period,interval=interval,start=start,end=end)["Close"]
     for name in currencies.keys():
         if currencies[name]!="USD":
-            df[name] = df[name]/currencies_time_series[currencies[name]]
+            df[name] = df[name]/currencies_time_series[currencies[name]+"=X"]
 
     print("Data, in USD")
     print("------------------------------")
