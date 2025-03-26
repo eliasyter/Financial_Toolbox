@@ -28,7 +28,7 @@ class Portfolio():
         for ticker in data:
             current_stock=Stock(ticker[0])
             first_data_point.append(current_stock.max_price_data.iloc[0].name)
-            self.portfolio_info[current_stock]={"waight":ticker[1],
+            self.portfolio_info[current_stock]={"weight":ticker[1],
                                                 "amount":ticker[2]}
             
         #this will used to never go over the point that i have data on all stocks
