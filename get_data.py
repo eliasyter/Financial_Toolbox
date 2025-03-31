@@ -28,14 +28,15 @@ def Get_Normalized_Data(a, period='1mo', interval='1d', start=None, end=None):
     
     print(f"tmp = {tmp}")
     print("")
+
+    if tmp!=[]:
+        currencies_tickers = yf.Tickers(tmp)
+        currencies_time_series = currencies_tickers.history(period=period,interval=interval,start=start,end=end)["Close"]
     
-    currencies_tickers = yf.Tickers(tmp)
-    currencies_time_series = currencies_tickers.history(period=period,interval=interval,start=start,end=end)["Close"]
-    
-    print("Currency time series")
-    print("------------------------------")
-    print(currencies_time_series)
-    print("")
+        print("Currency time series")
+        print("------------------------------")
+        print(currencies_time_series)
+        print("")
 
     
 

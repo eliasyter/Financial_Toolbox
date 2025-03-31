@@ -71,8 +71,8 @@ def Mean_Variance_No_Shortselling(a, r_p, period='1mo', interval='1d', start=Non
     cov   = np.cov(log_returns.T) * 252
     cov_1 = npl.solve(cov,np.identity(N))
     r     = np.mean(log_returns,axis=0) * 252
-    
-    print(f"r     shape = {r.shape}")
+
+    print(f"r = {r}, shape = {r.shape}")
     print(f"cov_1 shape = {cov_1.shape}")
     
     for i in range(max_iter):
@@ -100,4 +100,8 @@ def Mean_Variance_No_Shortselling(a, r_p, period='1mo', interval='1d', start=Non
             break
         
     return weights,names
+
+def Mean_Variance_No_Shortselling_Robust(a, r_p, period='1mo', interval='1d', start=None, end=None):
+    log_returns,names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end)
+    return np.zeros(len(names)),names
     
