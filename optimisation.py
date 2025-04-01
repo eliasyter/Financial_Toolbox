@@ -4,7 +4,7 @@ import numpy.linalg as npl
 import pandas as pd
 import get_data
 
-def Mean_Variance(log_returns, mu_p):
+def Mean_Variance(mu_p, log_returns):
     N     = log_returns.shape[1]
     r     = np.mean(log_returns,axis=0) * 252
     cov   = np.cov(log_returns.T) * 252
@@ -59,7 +59,7 @@ def Mean_Variance_No_Constraints_Naive(a, r_p, period='1mo', interval='1d', star
 def Mean_Variance_No_Constraints_Robust(a, r_p, period='1mo', interval='1d', start=None, end=None, verbose=True):
     log_returns,names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
     mu_p = np.log(r_p+1)
-    weights = Mean_Variance(log_returns, mu_p)
+    weights = Mean_Variance(mu_p, log_returns)
     return weights,names
 
 def Yearly_Log_Returns(a, period='1mo', interval='1d', start=None, end=None, verbose=True):
@@ -71,7 +71,7 @@ def Yearly_Log_Returns(a, period='1mo', interval='1d', start=None, end=None, ver
         print(total_log_returns)
         print("")
     total_log_returns = total_log_returns*252
-    return total_log_returns,names
+    return np.array(total_log_returns),names
     
 def Yearly_Arth_Returns(a, period='1mo', interval='1d', start=None, end=None, verbose=True):
     prices, names = get_data.Get_Normalized_Data(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
@@ -84,7 +84,7 @@ def Yearly_Arth_Returns(a, period='1mo', interval='1d', start=None, end=None, ve
         print("")
     total_arth_returns = total_arth_returns**(252/n)
     total_arth_returns = total_arth_returns -1
-    return total_arth_returns,names
+    return np.array(total_arth_returns),names
     
 def Yearly_Returns(a, period='1mo', interval='1d', start=None, end=None, verbose=True):
     total_log_returns, names = Yearly_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
@@ -135,4 +135,39 @@ def Mean_Variance_No_Shortselling(a, r_p, period='1mo', interval='1d', start=Non
 def Mean_Variance_No_Shortselling_Robust(a, r_p, period='1mo', interval='1d', start=None, end=None, verbose=True):
     log_returns,names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
     return np.zeros(len(names)),names
+
+def Efficiency_Frontier_No_Constraints(a, min_ret, max_ret, prec=0.1, period='1mo', interval='1d', start=None, end=None, verbose=True):
+    log_returns, names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
+    N = len(names)
+    cov   = np.cov(log_returns.T) * 252
+    cov_1 = npl.solve(cov, np.identity(N))
+    R = np.arange(min_ret, max_ret+prec,prec)
+    R_yearly,_ = Yearly_Arth_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
+    R_yearly = R_yearly.reshape((N,1))
+    R_log = np.log(R + 1)
+    if verbose:
+        print("---------------")
+        print(f"R log: {R_log}")
+        print(f"shape of cov_1: {cov_1.shape}")
+        print("")
+    Var = np.zeros(len(R))
+    Ret = np.zeros(len(R))
+    
+    for i in range(len(R_log)):
+        mu = R_log[i]
+        weights = Mean_Variance(mu, log_returns)
+        weights = weights.reshape((N,1))
+        if verbose:
+            print(f"on iteration {i+1}")
+            print("-----------------------------")
+            print(f"shape of weights: {weights.shape}")
+            print("")
+        Var[i] = weights.T @ cov_1 @ weights
+        Ret[i] = weights.T @ R_yearly
+        if verbose:
+            print(f"finished {i+1}-th iteration")
+        
+    return Ret,Var,names
+    
+    
     
