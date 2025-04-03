@@ -16,7 +16,7 @@ def Mean_Variance(mu_p, log_returns):
     lam   = (C*mu_p - A)/D
     gam   = (B - A*mu_p)/D
     w     = lam*cov_1@r + gam*cov_1@np.ones(N) 
-    return w
+    return w,cov
 
 
 def Mean_Variance_No_Constraints_Naive(a, r_p, period='1mo', interval='1d', start=None, end=None, verbose=True):
@@ -25,10 +25,10 @@ def Mean_Variance_No_Constraints_Naive(a, r_p, period='1mo', interval='1d', star
     names = a.split(" ")
 
     #extract pricedata
-    df = tickers.history(period=period,interval=interval,start=start,end=end)["Close"]
+    data_df = tickers.history(period=period,interval=interval,start=start,end=end)["Close"]
     
     #convert to numpy
-    data = df.to_numpy()
+    data = data_df.to_numpy()
     data = data[:-1]
 
     data = data[:-1,:]/data[1:,:] - 1
@@ -53,14 +53,47 @@ def Mean_Variance_No_Constraints_Naive(a, r_p, period='1mo', interval='1d', star
     if verbose:
         print(f"cov_1 shape {np.shape(cov_1)}")
     
-    
-    return lam*cov_1@r + gam*cov_1@np.ones(N),names
+    weights = lam*cov_1@r + gam*cov_1@np.ones(N),names
+    return weights
 
 def Mean_Variance_No_Constraints_Robust(a, r_p, period='1mo', interval='1d', start=None, end=None, verbose=True):
+    df = pd.DataFrame(columns=["Vol", "Ret", "Ret/Vol", "Comp"])
     log_returns,names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
     mu_p = np.log(r_p+1)
-    weights = Mean_Variance(mu_p, log_returns)
-    return weights,names
+    weights,cov = Mean_Variance(mu_p, log_returns)
+    # Final portfolio calculation
+    R_yearly = Yearly_Arth_Returns(a, period=period, interval=interval, 
+                                 start=start, end=end, verbose=verbose).values()
+    R_yearly = np.array(list(R_yearly))
+    
+    # Ensure proper array shapes
+    weights = weights.reshape(-1, 1)  # Column vector
+    Vol = np.sqrt(weights.T @ cov @ weights).item()
+    Ret = (weights.T @ R_yearly).item()
+    
+    # Create composition dict with proper scalar values
+    comp_dict = {name: float(w) for name, w in zip(names, weights.flatten())}
+    
+    # Create new row as Series with explicit dtype conversions
+    new_row = pd.Series({
+        'Vol': float(Vol),
+        'Ret': float(Ret),
+        'Ret/Vol': float(Ret/Vol),
+        'Comp': comp_dict
+    })
+    
+    # Append with concat instead of loc for better type preservation
+    df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
+    
+    # Force dtypes
+    df = df.astype({
+        'Vol': 'float64',
+        'Ret': 'float64',
+        'Ret/Vol': 'float64',
+        'Comp': 'object'
+    })
+    
+    return df
 
 def Yearly_Log_Returns(a, period='1mo', interval='1d', start=None, end=None, verbose=True):
     log_returns, names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
@@ -71,7 +104,7 @@ def Yearly_Log_Returns(a, period='1mo', interval='1d', start=None, end=None, ver
         print(total_log_returns)
         print("")
     total_log_returns = total_log_returns*252
-    return np.array(total_log_returns),names
+    return dict(zip(names,total_log_returns))
     
 def Yearly_Arth_Returns(a, period='1mo', interval='1d', start=None, end=None, verbose=True):
     prices, names = get_data.Get_Normalized_Data(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
@@ -84,74 +117,111 @@ def Yearly_Arth_Returns(a, period='1mo', interval='1d', start=None, end=None, ve
         print("")
     total_arth_returns = total_arth_returns**(252/n)
     total_arth_returns = total_arth_returns -1
-    return np.array(total_arth_returns),names
-    
-def Yearly_Returns(a, period='1mo', interval='1d', start=None, end=None, verbose=True):
-    total_log_returns, names = Yearly_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
-    total_arth_returns, _ = Yearly_Arth_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
-    return total_log_returns,total_arth_returns,names
+    return dict(zip(names,total_arth_returns))
 
 def Mean_Variance_No_Shortselling(a, r_p, period='1mo', interval='1d', start=None, end=None, verbose=True):
-    log_returns,names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
+    df = pd.DataFrame(columns=["Vol", "Ret", "Ret/Vol", "Comp"])
+    
+    # Data collection
+    log_returns, names = get_data.Get_Normalized_Log_Returns(a, period=period, interval=interval, 
+                                                            start=start, end=end, verbose=verbose)
     names = np.array(names)
     mu_p = np.log(r_p+1)
-    max_iter = log_returns.shape[1] # we can maximum iterate N times
-    long_map = np.ones(log_returns.shape[1], dtype=bool) # to begin we consider every weight
-
-    N     = int(log_returns.shape[1])
-    cov   = np.cov(log_returns.T) * 252
-    cov_1 = npl.solve(cov,np.identity(N))
-    r     = np.mean(log_returns,axis=0) * 252
+    max_iter = log_returns.shape[1]
+    long_map = np.ones(log_returns.shape[1], dtype=bool)
+    N = int(log_returns.shape[1])
+    
+    # Portfolio calculations
+    cov = np.cov(log_returns.T) * 252
+    cov_1 = npl.solve(cov, np.identity(N))
+    r = np.mean(log_returns, axis=0) * 252
+    
     if verbose:
         print(f"r = {r}, shape = {r.shape}")
         print(f"cov_1 shape = {cov_1.shape}")
-    
+
     for i in range(max_iter):
+        cov_1 = cov_1 * np.outer(long_map, long_map)
         
-        cov_1 = cov_1 * np.outer(long_map,long_map)
-        # recompute variables
-        A       = np.ones((1,N)) @ cov_1 @ r
-        B       = r.T @ cov_1 @ r
-        C       = np.ones((1,N)) @ cov_1 @ np.ones((N,1))
-        D       = B*C - A**2
+        # Portfolio optimization math
+        A = np.ones((1,N)) @ cov_1 @ r
+        B = r.T @ cov_1 @ r
+        C = np.ones((1,N)) @ cov_1 @ np.ones((N,1))
+        D = B*C - A**2
+        
         if D == 0:
-            # something went wrong
-            weights = np.array([])
-            print("failed to find optimal pf")
-            break
-        lam     = (C*mu_p - A)/D
-        gam     = (B - A*mu_p)/D
-        weights = lam*cov_1@r + gam*cov_1@np.ones(N) 
+            print("Failed to find optimal pf")
+            return df  # Return empty DF instead of breaking
+            
+        lam = (C*mu_p - A)/D
+        gam = (B - A*mu_p)/D
+        weights = lam*cov_1@r + gam*cov_1@np.ones(N)
+        weights = weights.flatten()  # Ensure 1D array
 
+        # Long/short check
         short_map = weights < 0
-        long_map  = weights >= 0
+        long_map = weights >= 0
 
-        if short_map.sum()==0:
-            # every weight is non-negative
+        if short_map.sum() == 0:
             break
-        
-    return weights,names
+            
+    # Final portfolio calculation
+    R_yearly = Yearly_Arth_Returns(a, period=period, interval=interval, 
+                                 start=start, end=end, verbose=verbose).values()
+    R_yearly = np.array(list(R_yearly))
+    
+    # Ensure proper array shapes
+    weights = weights.reshape(-1, 1)  # Column vector
+    Vol = np.sqrt(weights.T @ cov @ weights).item()
+    Ret = (weights.T @ R_yearly).item()
+    
+    # Create composition dict with proper scalar values
+    comp_dict = {name: float(w) for name, w in zip(names, weights.flatten())}
+    
+    # Create new row as Series with explicit dtype conversions
+    new_row = pd.Series({
+        'Vol': float(Vol),
+        'Ret': float(Ret),
+        'Ret/Vol': float(Ret/Vol),
+        'Comp': comp_dict
+    })
+    
+    # Append with concat instead of loc for better type preservation
+    df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
+    
+    # Force dtypes
+    df = df.astype({
+        'Vol': 'float64',
+        'Ret': 'float64',
+        'Ret/Vol': 'float64',
+        'Comp': 'object'
+    })
+    
+    return df
+
+
 
 def Mean_Variance_No_Shortselling_Robust(a, r_p, period='1mo', interval='1d', start=None, end=None, verbose=True):
     log_returns,names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
-    return np.zeros(len(names)),names
+    return dict(zip(names,np.zeros(len(names))))
 
 def Efficiency_Frontier_No_Constraints(a, min_ret, max_ret, prec=0.1, period='1mo', interval='1d', start=None, end=None, verbose=True):
+    EF_df = pd.DataFrame(columns=["Vol", "Ret", "Ret/Vol", "Comp"])
     log_returns, names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
     N = len(names)
     cov   = np.cov(log_returns.T) * 252
     cov_1 = npl.solve(cov, np.identity(N))
     R = np.arange(min_ret, max_ret+prec,prec)
-    R_yearly,_ = Yearly_Arth_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
-    R_yearly = R_yearly.reshape((N,1))
     R_log = np.log(R + 1)
+    R_yearly = Yearly_Arth_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose).values()
+    R_yearly = np.array(list(R_yearly)).reshape((N,1))
+    
     if verbose:
         print("---------------")
+        print(f"R    : {R}")
         print(f"R log: {R_log}")
         print(f"shape of cov_1: {cov_1.shape}")
         print("")
-    Var = np.zeros(len(R))
-    Ret = np.zeros(len(R))
     
     for i in range(len(R_log)):
         mu = R_log[i]
@@ -162,12 +232,13 @@ def Efficiency_Frontier_No_Constraints(a, min_ret, max_ret, prec=0.1, period='1m
             print("-----------------------------")
             print(f"shape of weights: {weights.shape}")
             print("")
-        Var[i] = weights.T @ cov_1 @ weights
-        Ret[i] = weights.T @ R_yearly
+        Vol = (weights.T @ cov @ weights)**0.5
+        Ret = weights.T @ R_yearly
+        EF_df.loc[len(EF_df)] = [Vol, Ret, Ret/Vol, dict(zip(names,weights))]
         if verbose:
             print(f"finished {i+1}-th iteration")
         
-    return Ret,Var,names
+    return EF_df
     
     
     
