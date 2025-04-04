@@ -196,7 +196,7 @@ def Mean_Variance_No_Shortselling(a, r_p, period='1mo', interval='1d', start=Non
         'Ret/Vol': 'float64',
         'Comp': 'object'
     })
-    
+
     return df
 
 
@@ -206,7 +206,7 @@ def Mean_Variance_No_Shortselling_Robust(a, r_p, period='1mo', interval='1d', st
     return dict(zip(names,np.zeros(len(names))))
 
 def Efficiency_Frontier_No_Constraints(a, min_ret, max_ret, prec=0.1, period='1mo', interval='1d', start=None, end=None, verbose=True):
-    EF_df = pd.DataFrame(columns=["Vol", "Ret", "Ret/Vol", "Comp"])
+    EF_df = pd.DataFrame(columns=["Ret", "Vol", "Ret/Vol", "Comp"])
     log_returns, names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
     N = len(names)
     cov   = np.cov(log_returns.T) * 252
@@ -225,7 +225,7 @@ def Efficiency_Frontier_No_Constraints(a, min_ret, max_ret, prec=0.1, period='1m
     
     for i in range(len(R_log)):
         mu = R_log[i]
-        weights = Mean_Variance(mu, log_returns)
+        weights,_ = Mean_Variance(mu, log_returns)
         weights = weights.reshape((N,1))
         if verbose:
             print(f"on iteration {i+1}")
@@ -234,11 +234,18 @@ def Efficiency_Frontier_No_Constraints(a, min_ret, max_ret, prec=0.1, period='1m
             print("")
         Vol = (weights.T @ cov @ weights)**0.5
         Ret = weights.T @ R_yearly
-        EF_df.loc[len(EF_df)] = [Vol, Ret, Ret/Vol, dict(zip(names,weights))]
+        EF_df.loc[len(EF_df)] = [Ret, Vol, Ret/Vol, dict(zip(names,weights))]
         if verbose:
             print(f"finished {i+1}-th iteration")
+    
+    stocks_df = pd.DataFrame(columns=["Ret", "Vol", "Ret/Vol", "Comp"])
+    # add stocks for plotting
+    for i in range(N):
+        temp_weights = np.zeros(N)
+        temp_weights[i] = 1
+        stocks_df.loc[names[i]] = [R_yearly[i].item(), cov[i,i], R_yearly[i]/cov[i,i], dict(zip(names,temp_weights))]
         
-    return EF_df
+    return EF_df, stocks_df
     
     
     
