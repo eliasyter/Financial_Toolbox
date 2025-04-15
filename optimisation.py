@@ -98,6 +98,14 @@ def Mean_Variance_No_Shortselling(a, r_p, period='1mo', interval='1d', start=Non
     df.iloc[0,2] = df.iloc[0,0]/df.iloc[0,1]
     return df
 
+def Mean_Variance_Sparse(a, r_p, gamma, period='1mo', interval='1d', start=None, end=None, verbose=True):
+    df = pd.DataFrame(columns=["Ret", "Vol", "Ret/Vol", "Comp"])
+    df = df.astype({"Ret": 'float64', "Vol": 'float64', "Ret/Vol": 'float64', "Comp": 'object'})
+    log_returns,names = get_data.Get_Normalized_Log_Returns(a,period=period,interval=interval,start=start,end=end,verbose=False)
+    n,p = log_returns.shape
+    #implement proximal gradient - compromise: few assets, low variance
+
+    return None
 
 #---------------- Efficient Frontier ----------------# 
 def Efficient_Frontier_No_Constraints(a, min_ret, max_ret, prec=0.1, period='1mo', interval='1d', start=None, end=None, verbose=True):
