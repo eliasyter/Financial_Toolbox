@@ -56,12 +56,13 @@ def Get_Normalized_Data(a, period='1mo', interval='1d', start=None, end=None, ve
     if verbose:
         print(f"Row count after cleaning: {df.count()}")
         print("")
-    
+    names = df.columns
     return df,names
 
 def Get_Normalized_Returns(a, period='1mo', interval='1d', start=None, end=None, verbose=True):
     data,names = Get_Normalized_Data(a,period=period,interval=interval,start=start,end=end,verbose=verbose)
     returns = data.pct_change(periods=1).iloc[:-1]
+    returns = returns.dropna()
     return returns,names
 
 def Get_Normalized_Log_Returns(a, period='1mo', interval='1d', start=None, end=None, verbose=True):

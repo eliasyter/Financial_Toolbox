@@ -4,7 +4,7 @@ TODO:
 - add return output showing actual start and actual end
 - implement period wise optimisation for a specific number of periods
 - implement rolling optimisation? (might be too expensive)
-- compute market_portfolio under a certain accuracy
+- look into fixing shape problems related to return-dataframe for all optimisation functions
 - look into robustness ito trading days and choice of currency
 
 * pf_diagnostic.py:
