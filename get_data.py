@@ -84,21 +84,24 @@ def Get_Normalized_Log_Returns(a, period='1mo', interval='1d', start=None, end=N
         
 def Construct_Multiples_Table(a, verbose=True):
     names = a.split(" ")
-    df   = pd.DataFrame(columns=["P/E", "EV/EBITDA", "EV/EBIT", "EV/Revenue"])
-    df   = df.astype({"P/E": 'float64', "EV/EBITDA": 'float64', "EV/EBIT": 'float64', "EV/Revenue": 'float64'})
+    df   = pd.DataFrame(columns=["P/E", "tangible P/B", "EV/EBITDA", "EV/EBIT", "EV/Revenue"])
+    df   = df.astype({"P/E": 'float64', "tangible P/B": 'float64', "EV/EBITDA": 'float64', "EV/EBIT": 'float64', "EV/Revenue": 'float64'})
 
     for name in names:
         #construct ticker
         ticker       = yf.Ticker(name)
         ticker_info  = ticker.info
         price        = ticker_info["open"]
-        enterprise   = ticker.quarterly_balancesheet.loc["Ordinary Shares Number"].iloc[0]*price
-        + ticker.quarterly_balancesheet.loc["Total Debt"].iloc[0] - ticker.quarterly_balancesheet.loc["Cash And Cash Equivalents"].iloc[0]
         trailing_eps = ticker_info["epsTrailingTwelveMonths"]
+        tangible_book= ticker.quarterly_balancesheet.loc["Tangible Book Value"].iloc[0]
+        nb_shares    = ticker.quarterly_balancesheet.loc["Ordinary Shares Number"].iloc[0]
+        enterprise   = nb_shares*price + ticker.quarterly_balancesheet.loc["Total Debt"].iloc[0] 
+        - ticker.quarterly_balancesheet.loc["Cash And Cash Equivalents"].iloc[0]
         ebitda       = ticker.quarterly_income_stmt.loc["EBITDA"].iloc[:4].sum()
         ebit         = ticker.quarterly_income_stmt.loc["EBIT"].iloc[:4].sum()
         revenue      = ticker.quarterly_income_stmt.loc["Total Revenue"].iloc[:4].sum()
-        df.loc[name] = [price/trailing_eps, enterprise/ebitda, enterprise/ebit, enterprise/revenue]
+        df.loc[name] = [price/trailing_eps, price*nb_shares/tangible_book, 
+                        enterprise/ebitda, enterprise/ebit, enterprise/revenue]
         if verbose:
             print(f"finished computing {name} multiples")
     return df

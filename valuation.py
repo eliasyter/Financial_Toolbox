@@ -71,15 +71,32 @@ def Get_OSEBX_Shipping_Clean_Dirty():
 #---------------- Methods ----------------# 
 def Multiples_Valuation(candidate, peers, verbose=True):
     peers_table  = get_data.Construct_Multiples_Table(peers, verbose=verbose)
-    df           = pd.DataFrame(columns=["Price", "P/E", "EV/EBITDA", "EV/EBIT", "EV/Revenue"])
-    df           = df.astype({"Price": 'float64', "P/E": 'float64', "EV/EBITDA": 'float64', "EV/EBIT": 'float64', "EV/Revenue": 'float64'})
+    columns      = pd.MultiIndex.from_tuples([
+        ('actual', 'Price'),
+        ('multiples valuation', 'P/E'),
+        ('multiples valuation', 'P/B'),
+        ('multiples valuation', 'EV/EBITDA'),
+        ('multiples valuation', 'EV/EBIT'),
+        ('multiples valuation', 'EV/Revenue')
+    ])
+    df           = pd.DataFrame(columns=columns)
+    df           = df.astype({
+        ('actual', 'Price'): 'float64',
+        ('multiples valuation', 'P/E'): 'float64',
+        ('multiples valuation', 'P/B'): 'float64',
+        ('multiples valuation', 'EV/EBITDA'): 'float64',
+        ('multiples valuation', 'EV/EBIT'): 'float64',
+        ('multiples valuation', 'EV/Revenue'): 'float64'
+    })
     ticker       = yf.Ticker(candidate)
     ticker_info  = ticker.info
     price        = ticker_info["open"]
-    nb_shares    = ticker.quarterly_balancesheet.loc["Ordinary Shares Number"].iloc[0]
-    net_debt     = ticker.quarterly_balancesheet.loc["Total Debt"].iloc[0] - ticker.quarterly_balancesheet.loc["Cash And Cash Equivalents"].iloc[0]
-    enterprise   = nb_shares*price + net_debt
     trailing_eps = ticker_info["epsTrailingTwelveMonths"]
+    tangible_book= ticker.quarterly_balancesheet.loc["Tangible Book Value"].iloc[0]
+    nb_shares    = ticker.quarterly_balancesheet.loc["Ordinary Shares Number"].iloc[0]
+    net_debt     = ticker.quarterly_balancesheet.loc["Total Debt"].iloc[0] 
+    - ticker.quarterly_balancesheet.loc["Cash And Cash Equivalents"].iloc[0]
+    enterprise   = nb_shares*price + net_debt
     ebitda       = ticker.quarterly_income_stmt.loc["EBITDA"].iloc[:4].sum()
     ebit         = ticker.quarterly_income_stmt.loc["EBIT"].iloc[:4].sum()
     revenue      = ticker.quarterly_income_stmt.loc["Total Revenue"].iloc[:4].sum()
@@ -87,16 +104,11 @@ def Multiples_Valuation(candidate, peers, verbose=True):
     peers_average = peers_table.mean(axis=0)
     df.loc[candidate] = [price,
                          peers_average["P/E"] * trailing_eps,
+                         peers_average["tangible P/B"] * tangible_book/nb_shares, 
                          (peers_average["EV/EBITDA"] * ebitda - net_debt)/nb_shares,
                          (peers_average["EV/EBIT"] * ebit - net_debt)/nb_shares,
                          (peers_average["EV/Revenue"] * revenue - net_debt)/nb_shares]
-    df.columns = pd.MultiIndex.from_tuples([
-        ('actual', 'price'),
-        ('multiples valuation', 'p/e'),
-        ('multiples valuation', 'ev/ebitda'),
-        ('multiples valuation', 'ev/ebit'),
-        ('multiples valuation', 'ev/revenue')
-    ])
+    
     return df
 
     
