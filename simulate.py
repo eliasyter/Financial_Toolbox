@@ -21,12 +21,12 @@ class Stock():
 
 
 class Portfolio():
-    #tickers er en liste med tuples der rekkefølgen er [(ticker,waight,amount)]
+    #data er en liste med tuples der rekkefølgen er [(ticker,waight,amount)]
     #waight skal være på prosent formen 0.45 eks 
 
     #a is a string of tickers with spases between them. 
     #exp: "TSLA ORK.OL"
-    def __init__(self,data:list[(str,int,int)], a:str):
+    def __init__(self,data:list[(str,int,int)]):
         #forsikrer seg at summen av vektene dine blir til 
         
         total_prosent = sum(tup[1] for tup in data)
@@ -36,22 +36,36 @@ class Portfolio():
         a=""
         for info in data:
             a+=" "+info[0]
+        a=a[1:]
         prices=Get_Normalized_Data(a,period="max")[0]
+        print(prices)
         for info in data:
-            Stock(info[0], prices[info[0]])
+            new_stock=Stock(ticker_str=info[0], max_price_data=prices[info[0]])
+            self.portfolio_info[new_stock]={"waight":info[1],
+                                            "amount": info[2]}
+
 
         
-       
+    def simulate_portfolio(self, start:str, end:str, investing_amount:int):
+        for info in self.portfolio_info:
+            df=info.get_price(start,end)
+            df["Change"] = df.diff().dropna()
+            for i,change in enumerate(df["Change"]):
+                
+                percentage_change= change/(df.iloc[i+1])
+                ##print(percentage_change)
+                self.portfolio_info[info]["amount"]=self.portfolio_info[info]["amount"]*(1+percentage_change)
+                print(self.portfolio_info[info]["amount"])
+
+
+        #print(df["Change"])
+
             
-        
-        
-    
-    def simulate_portfolio(self, start:str, end:str, start_amount: int):
-        
-        stocks={}
-        for stock in self.portfolio_info:
-            stocks[stock]=stock.get_price(start,end)["Close"]
-    import sys
+
+
+
+
+import sys
 import io
 def plot_test_data(a):
     #dette forhindrer funskjonen get_normalized data å printe til konsollen
